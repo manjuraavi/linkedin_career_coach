@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from state import State
-from graph import build_graph
+from graph_utils import build_graph
 from scraper.linkedin_scraper import fetch_linkedin_profile
 import logging
 import json
