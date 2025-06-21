@@ -9,6 +9,7 @@ from agents.intent_classifier_agent import IntentClassifierAgent
 from routing import router
 import os
 from dotenv import load_dotenv
+import streamlit as st
 
 # --- Basic Setup ---
 logger = logging.getLogger("graph")
@@ -17,7 +18,7 @@ load_dotenv()
 # --- Agent Initialization ---
 # Instantiate a single instance of each agent to be used throughout the application.
 # This is more memory-efficient than creating new instances for each request.
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 profile_agent = ProfileAnalyzerAgent(OPENAI_API_KEY)
 job_fit_agent = JobFitAgent(OPENAI_API_KEY)
 content_enhancer_agent = ContentEnhancerAgent(OPENAI_API_KEY)

@@ -5,11 +5,12 @@ from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 import time
 import json
+import streamlit as st
 
 load_dotenv()
 logger = logging.getLogger("linkedin_scraper")
 
-APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
+APIFY_API_TOKEN = st.secrets["APIFY_API_TOKEN"]
 
 # Updated actor list with more reliable LinkedIn scrapers
 POSSIBLE_ACTOR_IDS = [
