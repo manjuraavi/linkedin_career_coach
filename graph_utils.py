@@ -1,5 +1,6 @@
 import logging
 from langgraph.graph import StateGraph
+from langgraph.checkpoint.memory import MemorySaver
 from state import State, memory_saver
 from agents.profile_analyzer_agent import ProfileAnalyzerAgent
 from agents.job_fit_agent import JobFitAgent
@@ -180,4 +181,5 @@ def build_graph():
 
     # Compile the graph, including a memory saver to persist state.
     # The checkpointer allows the graph to be stateful across multiple turns.
+    graph.set_checkpointer(MemorySaver())
     return graph.compile() 
