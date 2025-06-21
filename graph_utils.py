@@ -180,6 +180,4 @@ def build_graph():
     graph.add_conditional_edges("career_coach_agent", router)
 
     # Compile the graph, including a memory saver to persist state.
-    # The checkpointer allows the graph to be stateful across multiple turns.
-    graph.set_checkpointer(MemorySaver())
     return graph.compile() 
