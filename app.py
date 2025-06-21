@@ -7,20 +7,39 @@ from scraper.linkedin_scraper import fetch_linkedin_profile
 import logging
 import json
 import uuid
+import platform
 
 # --- Basic Setup ---
 load_dotenv()
 st.set_page_config(page_title="LinkedIn Career Coach", layout="wide")
 
+# Add deployment debugging
+logger = logging.getLogger("app")
+logger.info(f"Running on platform: {platform.platform()}")
+logger.info(f"Python version: {platform.python_version()}")
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"Environment variables available: {list(os.environ.keys())}")
+
 # --- Logging Configuration ---
 # Helps in debugging by writing logs to a file.
 log_dir = os.path.join(os.path.dirname(__file__), "logs")
 os.makedirs(log_dir, exist_ok=True)
-logging.basicConfig(
-    filename="logs/app.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s"
-)
+
+# Configure logging for both local and deployment
+try:
+    logging.basicConfig(
+        filename="logs/app.log",
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
+except Exception as e:
+    # Fallback for deployment environments where file logging might not work
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
+    print(f"File logging failed, using console logging: {e}")
+
 logger = logging.getLogger("app")
 
 # --- Helper Functions ---

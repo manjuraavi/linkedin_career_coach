@@ -10,7 +10,24 @@ import streamlit as st
 load_dotenv()
 logger = logging.getLogger("linkedin_scraper")
 
-APIFY_API_TOKEN = st.secrets["APIFY_API_TOKEN"]
+# We'll initialize the API token inside functions to avoid st.secrets issues during import
+_APIFY_API_TOKEN = None
+
+def _get_apify_token():
+    """Get the Apify API token with proper error handling."""
+    global _APIFY_API_TOKEN
+    if _APIFY_API_TOKEN is None:
+        # Try Streamlit secrets first (deployment)
+        try:
+            _APIFY_API_TOKEN = st.secrets["APIFY_API_TOKEN"]
+        except (KeyError, AttributeError, Exception):
+            # Fall back to environment variable (local development)
+            _APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
+            
+        if not _APIFY_API_TOKEN:
+            raise ValueError("APIFY_API_TOKEN not found in secrets or environment variables")
+    
+    return _APIFY_API_TOKEN
 
 # Updated actor list with more reliable LinkedIn scrapers
 POSSIBLE_ACTOR_IDS = [
@@ -54,7 +71,7 @@ def get_actor_input_schema(actor_id: str) -> Dict[str, Any]:
     """Get the input schema for a specific actor."""
     try:
         response = requests.get(
-            f"https://api.apify.com/v2/acts/{actor_id}?token={APIFY_API_TOKEN}",
+            f"https://api.apify.com/v2/acts/{actor_id}?token={_get_apify_token()}",
             timeout=10
         )
         if response.status_code == 200:
@@ -92,7 +109,7 @@ def test_actor_with_payload(actor_id: str, payload: Dict[str, Any]) -> Dict[str,
     """Test an actor with a specific payload format."""
     try:
         # First, validate the payload by starting a test run
-        test_url = f"https://api.apify.com/v2/acts/{actor_id}/runs?token={APIFY_API_TOKEN}"
+        test_url = f"https://api.apify.com/v2/acts/{actor_id}/runs?token={_get_apify_token()}"
         headers = {"Content-Type": "application/json"}
         
         logger.info(f"Testing actor {actor_id} with payload: {json.dumps(payload, indent=2)}")
@@ -127,7 +144,7 @@ def test_actor_with_payload(actor_id: str, payload: Dict[str, Any]) -> Dict[str,
 def find_working_actor_and_payload(linkedin_url: str) -> Dict[str, Any]:
     """Find a working actor and the correct payload format."""
     
-    if not APIFY_API_TOKEN:
+    if not _get_apify_token():
         raise LinkedInScraperError("APIFY_API_TOKEN not set in environment")
     
     for actor_id in POSSIBLE_ACTOR_IDS:
@@ -136,7 +153,7 @@ def find_working_actor_and_payload(linkedin_url: str) -> Dict[str, Any]:
         # Test if actor exists
         try:
             response = requests.get(
-                f"https://api.apify.com/v2/acts/{actor_id}?token={APIFY_API_TOKEN}",
+                f"https://api.apify.com/v2/acts/{actor_id}?token={_get_apify_token()}",
                 timeout=10
             )
             if response.status_code != 200:
@@ -166,7 +183,7 @@ def get_run_dataset_id(actor_id: str, run_id: str) -> Optional[str]:
     """Get the default dataset ID for a run."""
     try:
         response = requests.get(
-            f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={APIFY_API_TOKEN}",
+            f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={_get_apify_token()}",
             timeout=30
         )
         response.raise_for_status()
@@ -193,7 +210,7 @@ def wait_for_run_completion(actor_id: str, run_id: str, max_wait: int = 180) -> 
         try:
             # Check run status
             status_response = requests.get(
-                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={APIFY_API_TOKEN}",
+                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}?token={_get_apify_token()}",
                 timeout=30
             )
             status_response.raise_for_status()
@@ -215,8 +232,8 @@ def wait_for_run_completion(actor_id: str, run_id: str, max_wait: int = 180) -> 
                 
                 # Try multiple dataset URL formats
                 dataset_urls = [
-                    f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_API_TOKEN}",
-                    f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/dataset/items?token={APIFY_API_TOKEN}",
+                    f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={_get_apify_token()}",
+                    f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}/dataset/items?token={_get_apify_token()}",
                 ]
                 
                 for dataset_url in dataset_urls:

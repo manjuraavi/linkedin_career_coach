@@ -16,14 +16,34 @@ logger = logging.getLogger("graph")
 load_dotenv()
 
 # --- Agent Initialization ---
-# Instantiate a single instance of each agent to be used throughout the application.
-# This is more memory-efficient than creating new instances for each request.
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-profile_agent = ProfileAnalyzerAgent(OPENAI_API_KEY)
-job_fit_agent = JobFitAgent(OPENAI_API_KEY)
-content_enhancer_agent = ContentEnhancerAgent(OPENAI_API_KEY)
-career_coach_agent = CareerCoachAgent(OPENAI_API_KEY)
-intent_classifier_agent = IntentClassifierAgent(OPENAI_API_KEY)
+# We'll initialize agents inside the build_graph function to avoid st.secrets issues during import
+profile_agent = None
+job_fit_agent = None
+content_enhancer_agent = None
+career_coach_agent = None
+intent_classifier_agent = None
+
+
+def _initialize_agents():
+    """Initialize agents with proper API key handling."""
+    global profile_agent, job_fit_agent, content_enhancer_agent, career_coach_agent, intent_classifier_agent
+    
+    # Try Streamlit secrets first (deployment)
+    OPENAI_API_KEY = None
+    try:
+        OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+    except (KeyError, AttributeError, Exception):
+        # Fall back to environment variable (local development)
+        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY not found in secrets or environment variables")
+
+    profile_agent = ProfileAnalyzerAgent(OPENAI_API_KEY)
+    job_fit_agent = JobFitAgent(OPENAI_API_KEY)
+    content_enhancer_agent = ContentEnhancerAgent(OPENAI_API_KEY)
+    career_coach_agent = CareerCoachAgent(OPENAI_API_KEY)
+    intent_classifier_agent = IntentClassifierAgent(OPENAI_API_KEY)
 
 
 # --- Agent Node Definitions ---
@@ -33,6 +53,10 @@ intent_classifier_agent = IntentClassifierAgent(OPENAI_API_KEY)
 
 def profile_analyzer_node(state: State) -> State:
     """Invokes the Profile Analyzer agent and returns its analysis."""
+    global profile_agent
+    if profile_agent is None:
+        _initialize_agents()
+        
     profile = state.get("profile", {})
     session_id = state.get("session_id", "")
     user_question = state.get("user_question", "")
@@ -47,6 +71,10 @@ def profile_analyzer_node(state: State) -> State:
 
 def job_fit_node(state: State) -> State:
     """Invokes the Job Fit agent and returns its analysis."""
+    global job_fit_agent
+    if job_fit_agent is None:
+        _initialize_agents()
+        
     profile = state.get("profile", {})
     job_desc = state.get("job_description", "")
     session_id = state.get("session_id", "")
@@ -62,6 +90,10 @@ def job_fit_node(state: State) -> State:
 
 def content_enhancer_node(state: State) -> State:
     """Invokes the Content Enhancer agent and returns its suggestions."""
+    global content_enhancer_agent
+    if content_enhancer_agent is None:
+        _initialize_agents()
+        
     profile = state.get("profile", {})
     session_id = state.get("session_id", "")
     user_question = state.get("user_question", "")
@@ -76,6 +108,10 @@ def content_enhancer_node(state: State) -> State:
 
 def career_coach_node(state: State) -> State:
     """Invokes the Career Coach agent and returns its advice."""
+    global career_coach_agent
+    if career_coach_agent is None:
+        _initialize_agents()
+        
     profile = state.get("profile", {})
     job_desc = state.get("job_description", "")
     session_id = state.get("session_id", "")
@@ -100,6 +136,10 @@ def intent_classifier_node(state: State) -> State:
     Invokes the Intent Classifier agent to determine which agent should handle
     the user's request. This is the entry point of our conversational graph.
     """
+    global intent_classifier_agent
+    if intent_classifier_agent is None:
+        _initialize_agents()
+        
     user_question = state.get("user_question", "")
     session_id = state.get("session_id", "")
     try:
@@ -140,4 +180,4 @@ def build_graph():
 
     # Compile the graph, including a memory saver to persist state.
     # The checkpointer allows the graph to be stateful across multiple turns.
-    return graph.compile(checkpointer=memory_saver) 
+    return graph.compile() 
