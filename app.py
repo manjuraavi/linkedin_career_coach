@@ -166,13 +166,22 @@ if st.session_state.get("profile_loaded"):
                     logger.info(f"Chat state prepared for session {st.session_state['session_id']}: {json.dumps(chat_state, default=str)[:500]}")
                     
                     # Invoke the conversational graph.
-                    config = {"configurable": {"thread_id": st.session_state["session_id"]}}
-                    result = st.session_state["graph"].invoke(chat_state, config=config)
+                    logger.info(f"About to invoke graph with state keys: {list(chat_state.keys())}")
+                    logger.info(f"User question: {prompt_to_process}")
+                    logger.info(f"Session ID: {st.session_state['session_id']}")
+                    
+                    result = st.session_state["graph"].invoke(chat_state)
+                    logger.info(f"Graph invocation completed. Result type: {type(result)}")
+                    logger.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
                     
                     # STAGE 2, STEP 3: Extract the response.
                     if "error" in result:
                         response = f"❌ I encountered an error: {result['error']}"
                     else:
+                        # Debug logging to see what we're getting from the graph
+                        logger.info(f"Graph result keys: {list(result.keys())}")
+                        logger.info(f"Intent classification: {result.get('intent_classification', {})}")
+                        
                         # This logic intelligently extracts the response from the correct agent's output,
                         # based on the intent classification from the current turn.
                         response = None
@@ -182,24 +191,39 @@ if st.session_state.get("profile_loaded"):
                             "content_enhancer_agent": "enhanced_content", "career_coach_agent": "coaching"
                         }
                         output_key = agent_output_map.get(intent)
+                        
+                        logger.info(f"Intent: {intent}, Output key: {output_key}")
 
                         if output_key and output_key in result:
                             agent_output = result.get(output_key, {})
+                            logger.info(f"Agent output: {agent_output}")
                             # Ensure the response is for the *current* question to avoid showing stale data.
                             if agent_output.get("user_question") == prompt_to_process:
                                 response = agent_output.get("message") or agent_output.get("answer")
                         
                         # Fallback in case the primary extraction fails.
                         if not response: 
-                            response = (
-                                result.get("coaching", {}).get("message") or result.get("coaching", {}).get("answer") or
-                                result.get("analysis", {}).get("message") or result.get("job_fit", {}).get("message") or
-                                result.get("enhanced_content", {}).get("message") or
-                                "I understand. Let me provide some insights."
-                            )
+                            # Try to get response from any available agent output
+                            for key in ["coaching", "analysis", "job_fit", "enhanced_content"]:
+                                if key in result:
+                                    agent_output = result.get(key, {})
+                                    if isinstance(agent_output, dict):
+                                        potential_response = agent_output.get("message") or agent_output.get("answer")
+                                        if potential_response:
+                                            response = potential_response
+                                            logger.info(f"Using fallback response from {key}")
+                                            break
                             
+                            if not response:
+                                response = "I understand. Let me provide some insights."
+                                logger.warning("No response found in any agent output")
+                        
+                        # Add a test to see if we're getting different responses
+                        logger.info(f"Final response: {response[:100]}...")
+                        
                     # Add the final AI response to the chat history.
                     st.session_state["chat_history"].append({"role": "assistant", "content": response})
+                    logger.info(f"Chat history length after adding response: {len(st.session_state['chat_history'])}")
                     
                 except Exception as e:
                     error_msg = f"❌ Sorry, I encountered an error: {str(e)}"
@@ -208,7 +232,9 @@ if st.session_state.get("profile_loaded"):
                 finally:
                     # STAGE 2, STEP 4: Clear the processed prompt and rerun.
                     # This final rerun displays the AI's response in the UI.
+                    logger.info(f"Clearing processing prompt. Was: {st.session_state.processing_prompt}")
                     st.session_state.processing_prompt = None
+                    logger.info("Processing prompt cleared, about to rerun")
                     st.rerun()
 else:
     # Initial setup screen
